@@ -1,0 +1,135 @@
+#
+#   Copyright 2018, Cordite Foundation.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
+# Service
+# external-dns annotation will update DNS (cloudflare)
+# with correct A NAME mapping to public IP address
+# selector: defines which deployment the service points at
+apiVersion: v1
+kind: Service
+metadata:
+  name: network-map-dev
+  namespace: network-map-service
+  labels:
+    app: network-map-dev
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: network-map-dev.cordite.biz
+spec:
+  selector:
+    app: network-map-dev
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 443
+---
+## Persistent Volume
+# will create a new azure share each time it is created
+# can be mounted to many containers
+# uses Storage Class above
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: network-map-dev
+  namespace: network-map-service
+  labels:
+    app: network-map-dev
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azurefile
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Deployment
+# Creates the replicated container and manages lifecycle
+# TLS certs mounted
+# Persistent Volume mounted
+# Service points to this deployment (uses labels!)
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: network-map-dev
+  namespace: network-map-service
+  labels:
+    app: network-map-dev
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: network-map-dev
+    spec:
+      containers:
+        - name: network-map-service
+          image: registry.gitlab.com/cordite/network-map-service/network-map-service:latest
+          env:
+            - name: NMS_PORT
+              value: "443"
+            - name: NMS_DB
+              value: "/mnt/cordite/network-map/db"
+            - name: NMS_USERNAME
+              value: "admin"
+            - name: NMS_PASSWORD
+              value: "7twe3nqgdx5rjyfz"
+            - name: NMS_TLS_CERT_PATH
+              value: "/mnt/cordite/network-map/certificates/tls.crt"
+            - name: NMS_TLS_KEY_PATH
+              value: "/mnt/cordite/network-map/certificates/tls.key"
+          ports:
+            - containerPort: 443
+          volumeMounts:
+            - name: volume
+              mountPath: "/mnt/cordite/network-map/db"
+            - name: nms-tls-cert
+              readOnly: true
+              mountPath: "/mnt/cordite/network-map/certificates"
+      imagePullSecrets:
+        - name: nms-registry
+      volumes:
+        - name: volume
+          persistentVolumeClaim:
+            claimName: network-map-dev
+        - name: nms-tls-cert
+          secret:
+            secretName: network-map-dev-cordite-biz-tls-cert
+---
+# TLS certificate request
+# cert-manager will request signed certificate from CA (let's encrypt)
+# stored as secretName
+# domain will be commonName, dnsNames and domains
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: network-map-dev-cordite-biz
+  namespace: network-map-service
+  labels:
+    app: network-map-dev
+spec:
+  secretName: network-map-dev-cordite-biz-tls-cert
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: network-map-dev.cordite.biz
+  dnsNames:
+  - network-map-dev.cordite.biz
+  acme:
+    config:
+    - dns01:
+        provider: cloudflare-cordite-biz
+      domains:
+      - network-map-dev.cordite.biz

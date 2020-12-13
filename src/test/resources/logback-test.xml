@@ -1,0 +1,22 @@
+<configuration>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- encoders are assigned the type
+         ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
+    <encoder>
+      <pattern>[%-5level] [%thread] [%date{ISO8601}] %X{test-class} %X{test-name} %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="info">
+    <appender-ref ref="STDOUT"/>
+  </root>
+  <logger name="io.cordite.networkmap" level="info"/>
+  <logger name="io.cordite.networkmap.utils.PreallocatedFreePortAllocation" level="debug"/>s
+  <logger name="io.bluebank.braid.corda.rest.RestMounter" level="info"/>
+  <logger name="io.bluebank.braid.corda.CordaSockJSHandler" level="info"/>
+  <logger name="BasicInfo" level="info"/>
+  <logger name="test-data" level="info"/>
+  <logger name="mongo" level="info"/>
+  <logger name="io.vertx.ext.web.handler" level="warn"/>
+</configuration>

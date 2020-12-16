@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-map
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: corda-network-map
+  template:
+    metadata:
+      labels:
+        app: corda-network-map
+    spec:
+      containers:
+      - name: network-map
+        image: cordite/network-map:latest
+        env:
+        - name: NMS_ROOT_CA_FILE_PATH 
+          value: ""
+        - name: NMS_CERTMAN_TRUSTSTORE_PASSWORD
+          value: "passwd"
+        - name: NMS_AUTH_PASSWORD
+          value: admin
+        - name: NMS_AUTH_USERNAME
+          value: admin
+        ports:
+        - containerPort: 8080
